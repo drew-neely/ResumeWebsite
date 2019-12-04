@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Drew Neely | Drew&#39;s Resume</title>
+    <link>/drew-neely/</link>
+      <atom:link href="/drew-neely/index.xml" rel="self" type="application/rss+xml" />
+    <description>Drew Neely</description>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language>
+    <image>
+      <url>/img/icon-192.png</url>
+      <title>Drew Neely</title>
+      <link>/drew-neely/</link>
+    </image>
+    
+  </channel>
+</rss>
