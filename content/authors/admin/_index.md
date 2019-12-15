@@ -1,8 +1,7 @@
 ---
 authors:
 - admin
-bio: My research interests include distributed robotics, mobile computing and programmable
-  matter.
+bio: I am a Computer Scientist specializing in low level Computer Systems.
 education:
   courses:
   - course: BS Computer Science, Honors
@@ -28,10 +27,13 @@ social:
 - icon: github
   icon_pack: fab
   link: https://github.com/drew-neely
+- icon: linkedin
+  icon_pack : fab
+  link: https://www.linkedin.com/in/drewneely/
 superuser: true
 user_groups:
 - Researchers
 - Visitors
 ---
 
-Drew Neely is me, yada, yada, baby yoda.
+I am a Computer Scientist specializing in low level Computer Systems.
