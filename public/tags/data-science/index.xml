@@ -1,0 +1,986 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Data Science | Drew Neely</title>
+    <link>/tags/data-science/</link>
+      <atom:link href="/tags/data-science/index.xml" rel="self" type="application/rss+xml" />
+    <description>Data Science</description>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><lastBuildDate>Tue, 26 Nov 2019 00:00:00 +0000</lastBuildDate>
+    <image>
+      <url>/img/icon-192.png</url>
+      <title>Data Science</title>
+      <link>/tags/data-science/</link>
+    </image>
+    
+    <item>
+      <title>Analysis of Computer and Human Generated Random Number Sequences</title>
+      <link>/project/sds328-project2/</link>
+      <pubDate>Tue, 26 Nov 2019 00:00:00 +0000</pubDate>
+      <guid>/project/sds328-project2/</guid>
+      <description>
+
+
+&lt;div id=&#34;introduction&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Introduction&lt;/h1&gt;
+&lt;p&gt;The objective of this project is to discover features of numbers generated ‘randomly’ by a human and generated randomly by a computer that can be used to predict the creator of the ‘random’ number. To do this, I surveyed 10 people to produce 10 10-digit strings of random numbers. I also gathered some other potentially relevant information, then anonymized the data. The data collected from the 10 people are shown below.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;numbers_wide &amp;lt;- read.csv(&amp;quot;random_human_numbers.csv&amp;quot;)
+head(numbers_wide)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##   Name Human Gender Age Political.Party Studied.Science      Seq.1
+## 1    A   Yes Female  21        Democrat             Yes 2789956111
+## 2    B   Yes Female  21        Democrat             Yes 4985720117
+## 3    C   Yes   Male  49      Republican             Yes 6221014971
+## 4    D   Yes Female  20        Democrat             Yes 2438509376
+## 5    E   Yes   Male  21        Democrat             Yes 1865318579
+## 6    F   Yes Female  20        Democrat              No 1547869073
+##        Seq.2      Seq.3      Seq.4      Seq.5      Seq.6      Seq.7
+## 1 1366759287 7635557721 9422606787 5705422787 2967210348 9756780291
+## 2 6590031429 6404098972 2314564259 8712385119 1203343473 5645786902
+## 3 4179819803 2317891995 1908913123 5079181795 6481046253 2957108139
+## 4 1845910348 2071394705 1893526313 5724680516 2739152704 1637923840
+## 5 9987412378 1721834778 1321865554 1980874319 8700918782 1384794786
+## 6 5841290825 4613798534 6871045978 2103776154 9626598215 4065982138
+##        Seq.8      Seq.9     Seq.10
+## 1 5497651238 4591268881 4295565751
+## 2 1985763498 7050413427 6802232476
+## 3 1221316015 4620378902 8763219721
+## 4 6932674084 6905183951 8390649135
+## 5 5431821870 8479871231 4798218976
+## 6 7596053467 9283153469 8218083509&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I then used &lt;code&gt;pivot_longer&lt;/code&gt; to make this data long.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;numbers &amp;lt;- numbers_wide %&amp;gt;% 
+  pivot_longer(starts_with(&amp;quot;Seq&amp;quot;), values_to = &amp;quot;Number&amp;quot;, names_to = &amp;quot;Seq&amp;quot;, names_prefix = &amp;quot;Seq.&amp;quot;)
+head(numbers)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 x 8
+##   Name  Human Gender   Age Political.Party Studied.Science Seq       Number
+##   &amp;lt;fct&amp;gt; &amp;lt;fct&amp;gt; &amp;lt;fct&amp;gt;  &amp;lt;int&amp;gt; &amp;lt;fct&amp;gt;           &amp;lt;fct&amp;gt;           &amp;lt;chr&amp;gt;      &amp;lt;dbl&amp;gt;
+## 1 A     Yes   Female    21 Democrat        Yes             1     2789956111
+## 2 A     Yes   Female    21 Democrat        Yes             2     1366759287
+## 3 A     Yes   Female    21 Democrat        Yes             3     7635557721
+## 4 A     Yes   Female    21 Democrat        Yes             4     9422606787
+## 5 A     Yes   Female    21 Democrat        Yes             5     5705422787
+## 6 A     Yes   Female    21 Democrat        Yes             6     2967210348&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I then added 100 computer-generated random 10-digit strings onto the end of the 100 human generated random strings.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;set.seed(666)
+for(i in 1:100) {
+  num &amp;lt;- paste(sample(0:9, 10, replace = TRUE), collapse = &amp;#39;&amp;#39;)
+  df &amp;lt;- data.frame(NA, &amp;quot;No&amp;quot;, NA, NA, NA, NA, NA, num)
+  names(df) &amp;lt;- names(numbers)
+  numbers &amp;lt;- rbind(numbers, df)
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I then wrote the dataframe to a csv file and switched over to python to extract the features.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;write.csv(numbers, &amp;quot;random_numbers.csv&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I generated several features for each observation and exported a new csv file using the following python code.&lt;/p&gt;
+&lt;pre class=&#34;python&#34;&gt;&lt;code&gt;import csv
+import statistics 
+
+entries = []
+
+# import csv
+csv.register_dialect(&amp;#39;myDialect&amp;#39;,delimiter = &amp;#39;,&amp;#39;,quoting=csv.QUOTE_ALL,skipinitialspace=True)
+with open(&amp;#39;random_numbers.csv&amp;#39;, &amp;#39;r&amp;#39;) as f:
+    reader = csv.DictReader(f, dialect=&amp;#39;myDialect&amp;#39;)
+    for row in reader:
+        entries += [dict(row)]
+
+######################################################################
+
+def addFeatures(entry) :
+    seq = entry[&amp;#39;Number&amp;#39;]
+    while len(seq) &amp;lt; 10 :
+        seq = &amp;#39;0&amp;#39; + seq
+    
+    # digit frequency
+    max = 0
+    for d in range(0,10) :
+        count = 0
+        for i in range(0, 10) :
+            if str(d) == seq[i] :
+                count += 1
+        entry[&amp;#39;count.&amp;#39;+str(d)] = count
+        if count &amp;gt; max :
+            max = count
+    entry[&amp;#39;count.max.duplicates&amp;#39;] = max
+
+    # number of consecutive numbers
+    count = 0
+    for i in range(1, 10) :
+        if int(seq[i]) == int(seq[i-1]) - 1 or int(seq[i]) == int(seq[i-1]) + 1 :
+            count += 1
+    entry[&amp;#39;num.consecutive&amp;#39;] = count
+
+    # derivative
+    diff = []
+    for i in range(1, 10) :
+        diff += [int(seq[i]) - int(seq[i-1])]
+    deriv = statistics.mean(diff)
+    entry[&amp;#39;derivative&amp;#39;] = int(deriv * 100) / 100
+    entry[&amp;#39;growth.direction&amp;#39;] = &amp;#39;Increase&amp;#39; if deriv &amp;gt; 0 else (&amp;#39;Decrease&amp;#39; if deriv &amp;lt; 0 else &amp;#39;Zero&amp;#39;)
+
+    # mean
+    sum = 0
+    for i in range(0, 10) :
+        sum += int(seq[i])
+    entry[&amp;#39;mean&amp;#39;] = sum / 10
+
+    # standard deviation
+    entry[&amp;#39;std.dev&amp;#39;] = int(statistics.stdev([int(seq[i]) for i in range(0, 10)]) * 1000) / 1000
+    # even and odd
+    entry[&amp;#39;num.odd&amp;#39;] = len([int(seq[i]) for i in range(0, 10) if int(seq[i]) % 2 == 1])
+    entry[&amp;#39;num.even&amp;#39;] = len([int(seq[i]) for i in range(0, 10) if int(seq[i]) % 2 == 0])
+    
+    return entry
+
+######################################################################
+
+# Generate features
+for i in range(0, len(entries)) :
+    entries[i] = addFeatures(entries[i])
+
+# Export csv
+with open(&amp;#39;random_numbers_with_features.csv&amp;#39;, mode=&amp;#39;w&amp;#39;) as csv_file:
+    writer = csv.DictWriter(csv_file, fieldnames=entries[0].keys())
+
+    writer.writeheader()
+    for i in range(0, len(entries)) :
+        writer.writerow(entries[i])&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The features generated include the following : frequency of each digit, the highest frequency of any digit, the number of consecutive digits, the derivative of the sequence, the sign of the derivative (categorical), the mean of the sequence, the standard deviation of the sequence, and the number of even and odd digits in the sequence.&lt;/p&gt;
+&lt;p&gt;Now this csv can be re-imported into R.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;features &amp;lt;- read.csv(&amp;#39;random_numbers_with_features.csv&amp;#39;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then I can add a binary variable ‘Is.Human’ that is 1 if the sequence was generated by a human and 0 if the sequence was generated by a machine. I can also drop the variables I will not be using for testing.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;features &amp;lt;- features %&amp;gt;%
+  mutate(&amp;quot;Is.Human&amp;quot; = if_else(Human == &amp;quot;Yes&amp;quot;, 1, 0)) %&amp;gt;%
+  select(-Name, -Human, -Gender, -Age, -Political.Party, -Studied.Science, -Seq, -Number)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Finally I can randomize the order of the rows.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;set.seed(666)
+features &amp;lt;- features[sample(nrow(features)), ]&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now the features dataset is complete!&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;head(features)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##     count.0 count.1 count.2 count.3 count.4 count.5 count.6 count.7
+## 62        1       1       1       1       1       1       0       2
+## 126       2       2       0       0       1       0       3       0
+## 96        0       2       1       1       2       1       1       1
+## 139       0       2       1       0       0       0       1       1
+## 123       0       2       2       1       0       2       1       1
+## 28        1       4       2       1       0       1       1       0
+##     count.8 count.9 count.max.duplicates num.consecutive derivative
+## 62        1       1                    2               3       0.11
+## 126       1       1                    3               1      -0.66
+## 96        1       0                    2               3       0.33
+## 139       2       3                    3               1       0.11
+## 123       1       0                    2               0       0.11
+## 28        0       0                    4               3       0.44
+##     growth.direction mean std.dev num.odd num.even Is.Human
+## 62          Increase  4.6   3.098       6        4        1
+## 126         Decrease  4.1   3.381       3        7        0
+## 96          Increase  4.1   2.424       5        5        1
+## 139         Increase  6.0   3.366       6        4        0
+## 123         Increase  4.0   2.538       6        4        0
+## 28          Increase  2.2   1.932       6        4        1&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;manova-test&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;MANOVA Test&lt;/h1&gt;
+&lt;p&gt;Because some subsets of the data can be used to perfectly predict other features of this data (for example, if we know the frequency of the numbers 0-8 in a sequence we can easily calculate the frequency of 9s, the mean, and the standard deviation), multiple Manovas must be done with different sets of variables. It is likely that this division suggests we have more features than are likely to be helpful in creating a model to predict the data, but we will ignore this in favor of simplicity.&lt;/p&gt;
+&lt;div id=&#34;digit-frequencies&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Digit Frequencies&lt;/h3&gt;
+&lt;p&gt;The first manova we shall run will test if the frequency of numbers in the sequence is significantly different between different sources of the sequence.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;freqMan&amp;lt;-manova(cbind(count.0,count.1,count.2,
+                      count.3,count.4,count.5,
+                      count.6,count.7,count.8) ~ Is.Human,
+                data=features)
+summary(freqMan)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##            Df   Pillai approx F num Df den Df  Pr(&amp;gt;F)  
+## Is.Human    1 0.077249   1.7673      9    190 0.07681 .
+## Residuals 198                                          
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Since this is a relatively small dataset for what we are studying and the cost of a type 1 error (finding a non-predictor to be a predictor) is likely less than that of a type 2 error, we will use a relatively high significance threshold of 0.10.&lt;/p&gt;
+&lt;p&gt;With a p-value of 0.07681, the frequency of the numbers in the sequence is significant. As such, we must now run a multiple Anova tests to determine which features are significant predictors.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary.aov(freqMan)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##  Response count.0 :
+##              Df  Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.005 0.00500  0.0067 0.9348
+## Residuals   198 147.390 0.74439               
+## 
+##  Response count.1 :
+##              Df  Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.605 0.60500  0.8025 0.3714
+## Residuals   198 149.270 0.75389               
+## 
+##  Response count.2 :
+##              Df  Sum Sq Mean Sq F value  Pr(&amp;gt;F)  
+## Is.Human      1   2.645 2.64500  4.1449 0.04309 *
+## Residuals   198 126.350 0.63813                  
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+##  Response count.3 :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.72  0.7200  0.8893 0.3468
+## Residuals   198 160.30  0.8096               
+## 
+##  Response count.4 :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.02 0.02000  0.0276 0.8681
+## Residuals   198 143.26 0.72354               
+## 
+##  Response count.5 :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   2.42 2.42000  2.6995  0.102
+## Residuals   198 177.50 0.89646               
+## 
+##  Response count.6 :
+##              Df  Sum Sq Mean Sq F value  Pr(&amp;gt;F)  
+## Is.Human      1   2.205 2.20500  3.6581 0.05724 .
+## Residuals   198 119.350 0.60278                  
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+##  Response count.7 :
+##              Df  Sum Sq Mean Sq F value  Pr(&amp;gt;F)  
+## Is.Human      1   3.125 3.12500  4.5742 0.03368 *
+## Residuals   198 135.270 0.68318                  
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+##  Response count.8 :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1    0.5 0.50000  0.6471 0.4221
+## Residuals   198  153.0 0.77273&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary(aov(count.9 ~ Is.Human, data = features))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.04  0.0450   0.062  0.804
+## Residuals   198 144.71  0.7309&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This tells us that the frequency of ‘2’, ‘6’, and ‘7’ are significantly different between computer generated random numbers and human generated random numbers.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;features %&amp;gt;% 
+  group_by(Is.Human) %&amp;gt;% 
+  summarise(&amp;quot;count.2&amp;quot; = mean(count.2), 
+            &amp;quot;count.6&amp;quot; = mean(count.6), 
+            &amp;quot;count.7&amp;quot; = mean(count.7))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 2 x 4
+##   Is.Human count.2 count.6 count.7
+##      &amp;lt;dbl&amp;gt;   &amp;lt;dbl&amp;gt;   &amp;lt;dbl&amp;gt;   &amp;lt;dbl&amp;gt;
+## 1        0    0.88    1.02    0.82
+## 2        1    1.11    0.81    1.07&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;These results show that humans use more twos and sevens and fewer sixes. However, the results regarding the frequencies of twos and seven invite suspicion since we expect to see 1 as the mean count of every number generated by a computer, but the computer generated sequence frequencies differ from 1 by more than 10% when considering twos and sevens.&lt;/p&gt;
+&lt;p&gt;A post-hoc t-test for the frequency of twos, sixes, and sevens is shown below (even though since there are only 2 categories in the Is.Human field this is kind of pointless)&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pairwise.t.test(features$count.2, features$Is.Human, p.adj=&amp;quot;none&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+##  Pairwise comparisons using t tests with pooled SD 
+## 
+## data:  features$count.2 and features$Is.Human 
+## 
+##   0    
+## 1 0.043
+## 
+## P value adjustment method: none&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pairwise.t.test(features$count.6, features$Is.Human, p.adj=&amp;quot;none&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+##  Pairwise comparisons using t tests with pooled SD 
+## 
+## data:  features$count.6 and features$Is.Human 
+## 
+##   0    
+## 1 0.057
+## 
+## P value adjustment method: none&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;pairwise.t.test(features$count.7, features$Is.Human, p.adj=&amp;quot;none&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+##  Pairwise comparisons using t tests with pooled SD 
+## 
+## data:  features$count.7 and features$Is.Human 
+## 
+##   0    
+## 1 0.034
+## 
+## P value adjustment method: none&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;distribution-properties&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Distribution Properties&lt;/h3&gt;
+&lt;p&gt;Now we can test the other features of the sequence that were extracted.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;distMan&amp;lt;-manova(cbind(count.max.duplicates, num.consecutive,
+                      derivative, growth.direction, mean,
+                      std.dev, num.even) ~ Is.Human,
+                data=features)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary.aov(distMan)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##  Response count.max.duplicates :
+##              Df Sum Sq Mean Sq F value    Pr(&amp;gt;F)    
+## Is.Human      1   7.22  7.2200  19.199 1.909e-05 ***
+## Residuals   198  74.46  0.3761                      
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+##  Response num.consecutive :
+##              Df Sum Sq Mean Sq F value    Pr(&amp;gt;F)    
+## Is.Human      1  27.38 27.3800  15.452 0.0001169 ***
+## Residuals   198 350.84  1.7719                      
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+##  Response derivative :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1  0.128 0.12802  0.6849 0.4089
+## Residuals   198 37.008 0.18691               
+## 
+##  Response growth.direction :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1  0.245 0.24500  0.5294 0.4677
+## Residuals   198 91.630 0.46278               
+## 
+##  Response mean :
+##              Df  Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.361 0.36125  0.5934  0.442
+## Residuals   198 120.533 0.60875               
+## 
+##  Response std.dev :
+##              Df Sum Sq Mean Sq F value  Pr(&amp;gt;F)  
+## Is.Human      1  0.629 0.62922  2.8836 0.09106 .
+## Residuals   198 43.205 0.21821                  
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+##  Response num.even :
+##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1   0.12  0.1250  0.0544 0.8159
+## Residuals   198 455.27  2.2993&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary(aov(num.odd ~ Is.Human, data = features))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##              Df Sum Sq Mean Sq F value Pr(&amp;gt;F)
+## Is.Human      1    0.1   0.125   0.054  0.816
+## Residuals   198  455.3   2.299&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;From this we can see that there is a very significant difference between the two groups in terms of the variables count.max.duplicate (the highest count of the digits in the sequence), and num.consecutive (the number of consecutive numbers in the sequence). There is also a less significant difference between the two groups in terms of the variable std.dev (the standard deviation of the digits in the sequence).&lt;/p&gt;
+&lt;p&gt;I will not include a post-hoc t-test for this set of variables since there are only two groups.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;multiple-comparisons-correction&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Multiple Comparisons Correction&lt;/h3&gt;
+&lt;p&gt;In this analysis, 18 null hypothesis were tested. However, the largest subset of the variables tested which together do not perfectly predict any other variable in the subset (via linear combination) is of size 14. This excludes count.9, mean, num.even, and num.odd. This we will consider this analysis to consist of 14 comparisons.&lt;/p&gt;
+&lt;p&gt;Since we picked a significance threshold of 0.10, the probability that any given test yields a type 1 error is 10%. Thus, the probability that there is a type 1 error across our 14 comparisons is 1 - (1 - 0.10)&lt;sup&gt;14&lt;/sup&gt; = 77%. This rather high, so to correct for multiple comparisons we will use the bonferroni correction. This requires us to divide our significance level by 14 in order to keep the probability of a type 1 error occuring at 10%. The new significance level after correcting for multiple comparisons is 7.143e-3.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;significant-variables&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Significant Variables&lt;/h3&gt;
+&lt;p&gt;Using a corrected significance level of 7.143e-3, several variables which were before significant no longer are. The two explanatory variables which still have significant differences in the means between computer generated sequences and human generated sequences are count.max.duplicates (F = 19.199, p = 1.909e-5) and num.consecutive (F = 15.452, p = 1.1169e-4). Human generated sequences have significantly different highest-frequency of digits and number of consecutive digits compared to computer generated sequences.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;features %&amp;gt;%
+  mutate(&amp;quot;Source&amp;quot; = if_else(Is.Human == 1, &amp;quot;Human&amp;quot;, &amp;quot;Computer&amp;quot;)) %&amp;gt;%
+  select(Source, count.max.duplicates, num.consecutive) %&amp;gt;%
+  pivot_longer(c(count.max.duplicates, num.consecutive), names_to=&amp;quot;var&amp;quot;, values_to=&amp;quot;value&amp;quot;) %&amp;gt;%
+  ggplot(aes(Source,value,fill=Source)) +
+  scale_x_discrete(labels=c(&amp;quot;Human&amp;quot;,&amp;quot;Computer&amp;quot;))+
+  geom_bar(stat=&amp;quot;summary&amp;quot;) + 
+  geom_errorbar(stat=&amp;quot;summary&amp;quot;) +
+  labs(title = &amp;quot;Means of significant variables&amp;quot;) +
+  facet_wrap(~var, nrow=2) +
+  coord_flip() +
+  ylab(&amp;quot;&amp;quot;) +
+  theme(legend.position = &amp;quot;none&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/internal-project/index_files/figure-html/unnamed-chunk-16-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;assumptions&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Assumptions&lt;/h3&gt;
+&lt;p&gt;The assumption of random and independent observations was likely not very well met. The people surveyed to generate random numbers were not a random sample they were all people from my friend group and family. Additionally, each person surveyed generated multiple sequences. Since it is very possible that the features of the sequences generated by humans vary from person to person, the assumption of independent observations was not really met (I could test if there are any obviously significant differences between the features of the sequences generated by different people to explore this more, but I’m not going to).&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;randomization-test&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Randomization Test&lt;/h1&gt;
+&lt;p&gt;To again test if together the distributions of count.max.duplicates and num.consecutive are significantly different for sequences of numbers generated by humans and by computers, I will perform a PERMANOVA test. This test works by calculating a base F-statistic that describes the correlation of the explanatory variables with the response variables, and then randomly scrambling the order of the explanatory variables to break any existing correlation a large number of times and creating an F statistic from the scrambled data. The number of scrambled-F statistics that are more extreme than the original F statistic can be used to calculate a P-statistic.&lt;/p&gt;
+&lt;p&gt;H&lt;sub&gt;0&lt;/sub&gt;: The mean and spread of count.max.duplicates and num.consecutive do not differ between sequences created by humans and sequences created by a computer.&lt;/p&gt;
+&lt;p&gt;H&lt;sub&gt;A&lt;/sub&gt;: The mean or spread of count.max.duplicates or num.consecutive differ between sequences created by humans and sequences created by a computer.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;dists &amp;lt;- features %&amp;gt;%
+  select(count.max.duplicates, num.consecutive) %&amp;gt;%
+  dist()
+adonis(dists~Is.Human,data=features, permutations = 9999)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+## Call:
+## adonis(formula = dists ~ Is.Human, data = features, permutations = 9999) 
+## 
+## Permutation: free
+## Number of permutations: 9999
+## 
+## Terms added sequentially (first to last)
+## 
+##            Df SumsOfSqs MeanSqs F.Model      R2 Pr(&amp;gt;F)    
+## Is.Human    1      34.6  34.600  16.108 0.07523  1e-04 ***
+## Residuals 198     425.3   2.148         0.92477           
+## Total     199     459.9                 1.00000           
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The p-value of 1e-4 is smaller than the significance level of 0.10, so we may reject the null hypothesis and conclude that there is actually a difference between the distributions of these two variables in different source groups.&lt;/p&gt;
+&lt;p&gt;A plot showing the location of the test statistic on the dist distribution is shown bellow.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ggplot(data.frame(&amp;quot;dists&amp;quot; = as.numeric(dists)), aes(x=dists)) +
+  geom_histogram(binwidth = 0.4, boundary = 0) +
+  geom_vline(xintercept = quantile(dists, 1e-04))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/internal-project/index_files/figure-html/unnamed-chunk-18-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;linear-regression&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Linear Regression&lt;/h1&gt;
+&lt;p&gt;We will now perform a linear regression predicting Is.Human from count.max.duplicates and num.consecutive.&lt;/p&gt;
+&lt;div id=&#34;running-linear-regression-with-interaction&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Running Linear Regression (with interaction)&lt;/h3&gt;
+&lt;p&gt;The first step is to create mean centered versions of these variables.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;features &amp;lt;- features %&amp;gt;%
+  mutate(&amp;quot;count.max.duplicates_c&amp;quot; = count.max.duplicates - mean(count.max.duplicates),
+         &amp;quot;num.consecutive_c&amp;quot; = num.consecutive - mean(num.consecutive))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now we can create a linear model.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;model &amp;lt;- lm(Is.Human ~ count.max.duplicates_c * num.consecutive_c, data = features)
+summary(model)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+## Call:
+## lm(formula = Is.Human ~ count.max.duplicates_c * num.consecutive_c, 
+##     data = features)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.77651 -0.38664 -0.01848  0.39944  1.12937 
+## 
+## Coefficients:
+##                                            Estimate Std. Error t value
+## (Intercept)                               5.000e-01  3.313e-02  15.091
+## count.max.duplicates_c                   -2.139e-01  5.189e-02  -4.123
+## num.consecutive_c                         8.801e-02  2.415e-02   3.644
+## count.max.duplicates_c:num.consecutive_c  6.333e-05  3.472e-02   0.002
+##                                          Pr(&amp;gt;|t|)    
+## (Intercept)                               &amp;lt; 2e-16 ***
+## count.max.duplicates_c                   5.53e-05 ***
+## num.consecutive_c                        0.000343 ***
+## count.max.duplicates_c:num.consecutive_c 0.998547    
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+## Residual standard error: 0.4666 on 196 degrees of freedom
+## Multiple R-squared:  0.1464, Adjusted R-squared:  0.1333 
+## F-statistic: 11.21 on 3 and 196 DF,  p-value: 8.074e-07&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The intercept is the average value of the Is.Human variable (1 for human, 0 for computer). This is 0.5 since there are the same number of human generated sequences as computer generated sequences. The coefficient for the max number of duplicates is -0.21. This means that for every additional duplicate greater than the mean, the predicted probability that it was created by a human is decreased by 21%. The coefficient for the number of consecutive numbers is 0.088. This means that for every additional consecutive number above the mean, the predicted probability that it was created by a human increases by 8.8%. The coefficient for the interaction between the two variables is 6.33e-5. This means that for every increase of value in the number of duplicates, the coefficient of the number of consecutive digits is increased by 6.33e-5 (this is a super small value and is not significantly different from 0, so interaction can be ignored going forward).&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;line_x &amp;lt;- seq(from = 1.6, to = 5.3, length.out = 200)
+line &amp;lt;- (-1 * (line_x - 
+                  mean(features$count.max.duplicates)) * -2.139e-01) / 
+        8.801e-02 + mean(features$num.consecutive)
+
+ggplot(features, aes(x = count.max.duplicates, y = num.consecutive)) +
+  #scale_x_continuous(limits=c(1.7,5.3)) + 
+  #scale_y_continuous(limits=c(-0.3,7.3)) + 
+  geom_ribbon(aes(x = line_x, ymax= if_else(line &amp;lt; 7.3, line, 7.3), 
+                  ymin=-0.4, alpha = 0.2, fill = &amp;quot;Computer&amp;quot;)) +
+  geom_ribbon(aes(x = line_x, ymax= 7.3, ymin=if_else(line &amp;lt; 7.3, line, 7.3), 
+                  alpha = 0.2, fill = &amp;quot;Human&amp;quot;))+
+  geom_jitter(width = 0.35, height = 0.35,
+              aes(color = if_else(Is.Human == 1, &amp;quot;Human&amp;quot;, &amp;quot;Computer&amp;quot;))) +
+  geom_point(aes(color = if_else(Is.Human == 1, &amp;quot;Human&amp;quot;, &amp;quot;Computer&amp;quot;))) +
+  labs(color = &amp;quot;Source&amp;quot;, fill = &amp;quot;Predicted as&amp;quot;, title = &amp;quot;Regression of Significant variables&amp;quot;) +
+  xlab(&amp;quot;Maximum number of duplicate digits&amp;quot;) +
+  ylab(&amp;quot;Number of consecutive digits&amp;quot;) +
+  scale_alpha(guide = &amp;quot;none&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/internal-project/index_files/figure-html/unnamed-chunk-21-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;checking-assumptions&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Checking Assumptions&lt;/h3&gt;
+&lt;p&gt;It is likely the assumption of linearity fails as there does not appear to be a very strong linear relationship. Additionally, the scatterplot does not seem to be very normally distributed as the values for maximum number of duplicate digits are grouped on the left.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;testing-with-robust-standard-errors&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Testing with Robust Standard Errors&lt;/h3&gt;
+&lt;p&gt;We can use the coeftest method to perform a test on the linear regression model to get more cautious p-values.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;coeftest(model, vcov=vcovHC(model))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+## t test of coefficients:
+## 
+##                                             Estimate  Std. Error t value
+## (Intercept)                               5.0001e-01  3.4904e-02 14.3253
+## count.max.duplicates_c                   -2.1391e-01  6.8146e-02 -3.1390
+## num.consecutive_c                         8.8011e-02  2.6788e-02  3.2854
+## count.max.duplicates_c:num.consecutive_c  6.3328e-05  5.3216e-02  0.0012
+##                                           Pr(&amp;gt;|t|)    
+## (Intercept)                              &amp;lt; 2.2e-16 ***
+## count.max.duplicates_c                    0.001957 ** 
+## num.consecutive_c                         0.001206 ** 
+## count.max.duplicates_c:num.consecutive_c  0.999052    
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;With this additional test, nothing changed; the two variables are still significantly correlated with the source of the sequence (p-values of 1.96e-3 and 1.21e-3) and the interaction is still insignificant with p-value 0.999.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;effect-size&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Effect Size&lt;/h3&gt;
+&lt;p&gt;With an R&lt;sup&gt;2&lt;/sup&gt; value of 0.146, the linear regression model explains 14.6% of the variation in the source by the maximum number of duplicates in a sequence and the number of consecutive digits in a sequence.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;linear-regression-without-interaction&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Linear Regression Without Interaction&lt;/h3&gt;
+&lt;p&gt;We can now run the same linear regression without interactions to see the effect of the interactions.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;model_meffects &amp;lt;- lm(Is.Human ~ count.max.duplicates_c + num.consecutive_c, data = features)
+summary(model_meffects)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+## Call:
+## lm(formula = Is.Human ~ count.max.duplicates_c + num.consecutive_c, 
+##     data = features)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.77657 -0.38664 -0.01865  0.39945  1.12919 
+## 
+## Coefficients:
+##                        Estimate Std. Error t value Pr(&amp;gt;|t|)    
+## (Intercept)             0.50000    0.03291  15.192  &amp;lt; 2e-16 ***
+## count.max.duplicates_c -0.21391    0.05175  -4.133 5.29e-05 ***
+## num.consecutive_c       0.08801    0.02405   3.659 0.000325 ***
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+## Residual standard error: 0.4655 on 197 degrees of freedom
+## Multiple R-squared:  0.1464, Adjusted R-squared:  0.1377 
+## F-statistic:  16.9 on 2 and 197 DF,  p-value: 1.69e-07&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The coefficients and R&lt;sup&gt;2&lt;/sup&gt; values of the model without interaction are almost identical to that of the model with interaction. This can be easily explained by the fact that the model including interaction showed an extremely small level of interaction that was about as insignificant as one can get. We can use a likelihood ratio test to formally show that the models are not statistically different.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;lrtest(model, model_meffects)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Likelihood ratio test
+## 
+## Model 1: Is.Human ~ count.max.duplicates_c * num.consecutive_c
+## Model 2: Is.Human ~ count.max.duplicates_c + num.consecutive_c
+##   #Df  LogLik Df Chisq Pr(&amp;gt;Chisq)
+## 1   5 -129.33                    
+## 2   4 -129.33 -1     0     0.9985&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;With a p-value of 0.9985, there is no significant difference between the two models.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;logistic-regression&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Logistic Regression&lt;/h1&gt;
+&lt;p&gt;Wee will now run a logistic regression predicting the source of the random number sequences from the maximum number of duplicate digits and the number of consecutive digits. We can reuse the mean centered variables created when running the linear regression test.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;model &amp;lt;- glm(Is.Human ~ count.max.duplicates_c + num.consecutive_c, 
+             data = features, family = &amp;quot;binomial&amp;quot;)
+summary(model)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 
+## Call:
+## glm(formula = Is.Human ~ count.max.duplicates_c + num.consecutive_c, 
+##     family = &amp;quot;binomial&amp;quot;, data = features)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -1.76324  -0.96046  -0.01944   0.98549   2.45624  
+## 
+## Coefficients:
+##                         Estimate Std. Error z value Pr(&amp;gt;|z|)    
+## (Intercept)            -0.000442   0.153774  -0.003 0.997707    
+## count.max.duplicates_c -1.004141   0.259436  -3.870 0.000109 ***
+## num.consecutive_c       0.423695   0.123276   3.437 0.000588 ***
+## ---
+## Signif. codes:  0 &amp;#39;***&amp;#39; 0.001 &amp;#39;**&amp;#39; 0.01 &amp;#39;*&amp;#39; 0.05 &amp;#39;.&amp;#39; 0.1 &amp;#39; &amp;#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 277.26  on 199  degrees of freedom
+## Residual deviance: 245.40  on 197  degrees of freedom
+## AIC: 251.4
+## 
+## Number of Fisher Scoring iterations: 3&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The coefficients represent the change in the predicted log-odds of the source being human for a 1 unit change in the measurement. The intercept is -4.42e-4. This corresponds to an odd of 1, or a probability of 0.5 of the observation being generated by a human when the other variables are equal to their means. The coefficient of count.max.duplicates_c is -1.00. This means that for every increase of 1 in count.max.duplicates_c, the predicted log-odds of the source being human will decrease by 1.00. The coefficient of num.consecutive_c is 0.424. This means that for every increase in num.consecutive_c of 1, the predicted log-odds of the source being human will increase by 0.424.&lt;/p&gt;
+&lt;div id=&#34;quality-of-the-logistic-regression-model&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Quality of the Logistic Regression Model&lt;/h3&gt;
+&lt;p&gt;We can create a confusion matrix and generate some other relevant statistics using the confusionMatrix function of the caret library (we use &lt;code&gt;{R} positive=&amp;quot;Human&amp;quot;&lt;/code&gt; to make a prediction of Human the positive .&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;truth &amp;lt;- factor(if_else(features$Is.Human == 1, &amp;quot;Human&amp;quot;, &amp;quot;Computer&amp;quot;))
+pred &amp;lt;- factor(if_else(as.numeric(predict(model, type = &amp;quot;response&amp;quot;)) &amp;gt; 0.5, &amp;quot;Human&amp;quot;, &amp;quot;Computer&amp;quot;))
+confusionMatrix(truth, pred, positive = &amp;quot;Human&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction Computer Human
+##   Computer       62    38
+##   Human          32    68
+##                                           
+##                Accuracy : 0.65            
+##                  95% CI : (0.5795, 0.7159)
+##     No Information Rate : 0.53            
+##     P-Value [Acc &amp;gt; NIR] : 0.0003917       
+##                                           
+##                   Kappa : 0.3             
+##                                           
+##  Mcnemar&amp;#39;s Test P-Value : 0.5500973       
+##                                           
+##             Sensitivity : 0.6415          
+##             Specificity : 0.6596          
+##          Pos Pred Value : 0.6800          
+##          Neg Pred Value : 0.6200          
+##              Prevalence : 0.5300          
+##          Detection Rate : 0.3400          
+##    Detection Prevalence : 0.5000          
+##       Balanced Accuracy : 0.6505          
+##                                           
+##        &amp;#39;Positive&amp;#39; Class : Human           
+## &lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The accuracy of the model is 0.65: 65% of the observations were predicted correctly. The sensitivity is 0.642: 64.2% of the human generated sequences were correctly identified as such. The specificity is 0.660: 66.0% of the computer generated sequences were correctly identified as such. The recall (positive predicted value) is 0.680: 68.0% of sequences predicted as human generated actually were human generated.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;density-plot&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Density Plot&lt;/h3&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;logit&amp;lt;-predict(model) #get predicted log-odds
+truth&amp;lt;-factor(if_else(features$Is.Human == 1, &amp;quot;Human&amp;quot;, &amp;quot;Computer&amp;quot;))
+ggplot(features,aes(x=logit, fill=truth)) +
+  geom_density(alpha=.3) +
+  geom_vline(xintercept=0, lty=2) +
+  labs(title = &amp;quot;Density Plot of Logistic Regression&amp;quot;, fill = &amp;quot;Source&amp;quot;) +
+  xlab(&amp;quot;Predicted Log-odds&amp;quot;) +
+  ylab(&amp;quot;Density&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/internal-project/index_files/figure-html/unnamed-chunk-27-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;There is a lot of overlap suggesting that the final model created to classify the source will not be very good. It does imply, however, that we’ll be able to do a little bit better than random guessing since there are portions of the graph that do not overlap.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;roc-and-auc&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;ROC and AUC&lt;/h3&gt;
+&lt;p&gt;We can now calculate the ROC plot of the logistic model.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;ROCplot &amp;lt;- ggplot(features) +
+  geom_roc(aes(d=Is.Human, m=predict(model, type = &amp;quot;response&amp;quot;)), n.cuts=0) +
+  labs(title = &amp;quot;ROC Plot of Logistic Regression Model&amp;quot;)
+ROCplot&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/internal-project/index_files/figure-html/unnamed-chunk-28-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;The ROC curve is concave down, which is a good sign for the accuracy of the model.&lt;/p&gt;
+&lt;p&gt;We can now calculate AUC, the area under the ROC curve.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;calc_auc(ROCplot)$AUC&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.7232&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The AUC is 0.723. This gives the model a fair classification for its ability to be both sensitive and specific.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;cross-validation&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Cross Validation&lt;/h3&gt;
+&lt;p&gt;We can perform a 10 Fold Cross Validation to determine the out of sample statistics for the model. The dataset was already randomized at the beginning of the project, so this does not need to be done again. The function “diags” described in class will be used to summarize the data.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;set.seed(666)
+k = 10
+
+folds&amp;lt;-cut(seq(1:nrow(features)),breaks=k,labels=F)
+
+diags&amp;lt;-NULL
+for(i in 1:k){ 
+  train&amp;lt;-features[folds!=i,]
+  test&amp;lt;-features[folds==i,]
+  truth&amp;lt;-test$Is.Human
+  fit&amp;lt;- glm(Is.Human ~ count.max.duplicates_c + num.consecutive_c,
+            data = train, family=&amp;quot;binomial&amp;quot;)
+  probs&amp;lt;- predict(fit, newdata = test, type = &amp;quot;response&amp;quot;)
+  diags&amp;lt;-rbind(diags,class_diag(probs,truth))
+}
+
+apply(diags,2,mean)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##       acc      sens      spec       ppv       auc 
+## 0.6200000 0.6283134 0.6417166 0.6620377 0.7073150&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The out-of-sample accuracy, sensitivity, and recall (ppv) are 0.620, 0.628, and 0.662. The AUC is 0.707, which is only slightly less than the in-sample AUC, suggesting there was very little overfitting (most likely due to the extensive analysis of which variables were actual predictors before selecting the variables to use in the model).&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;lasso-regression&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Lasso Regression&lt;/h1&gt;
+&lt;p&gt;We will now perform a Lasso regression using every feature gathered about the data.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;y&amp;lt;-as.matrix(features$Is.Human)  ###save response variable 
+x&amp;lt;-features %&amp;gt;% select(count.0, count.1, count.2, count.3,
+                       count.4, count.5, count.6, count.7,
+                       count.8, count.9, count.max.duplicates,
+                       num.consecutive, derivative,
+                       mean, std.dev, num.odd, num.even) %&amp;gt;%
+  scale %&amp;gt;%
+  as.matrix
+
+cv&amp;lt;-cv.glmnet(x,y,family=&amp;quot;binomial&amp;quot;)
+lasso&amp;lt;-glmnet(x,y,family=&amp;quot;binomial&amp;quot;,lambda=cv$lambda.1se)
+coef(lasso)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## 18 x 1 sparse Matrix of class &amp;quot;dgCMatrix&amp;quot;
+##                                 s0
+## (Intercept)          -0.0003727751
+## count.0               .           
+## count.1               .           
+## count.2               .           
+## count.3               .           
+## count.4               .           
+## count.5               .           
+## count.6               .           
+## count.7               .           
+## count.8               .           
+## count.9               .           
+## count.max.duplicates -0.2112269656
+## num.consecutive       0.1474339995
+## derivative            .           
+## mean                  .           
+## std.dev               .           
+## num.odd               .           
+## num.even              .&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Interestingly enough the only predictors with non 0 coefficients are the two predictors we determined to be significant in the previous sections of this project: count.max.duplicates and num.consecutive. For this reason, the 10-fold CV will be exactly the same as the 10-Fold CV in the previous section, and will be excluded.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;conclusion&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Conclusion&lt;/h1&gt;
+&lt;p&gt;I found two features of a randomly generated numbers that are significant predictors of whether the sequence of numbers was generated by a human or computer. These two features are the maximum number of times any one digit is repeated in a sequence and the number of consecutive numbers in the digits of a sequence. These two features describe 14.6% of the variation in the source of the sequence, and together can be used to create a logistic model with a 62.0% accuracy and AUC of 0.707. This can be described as a model of fair quality, and is definitely better than guessing.&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Analysis of Vehicle Fuel Economies</title>
+      <link>/project/sds328-project1/</link>
+      <pubDate>Sun, 20 Oct 2019 00:00:00 +0000</pubDate>
+      <guid>/project/sds328-project1/</guid>
+      <description>
+
+
+&lt;hr /&gt;
+&lt;div id=&#34;introduction&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Introduction&lt;/h1&gt;
+&lt;p&gt;The datasets I chose to analyze for this project are a dataset of vehicle fuel economies in the United States and a dataset of yearly green house gas emission per country.&lt;/p&gt;
+&lt;p&gt;The dataset of vehicle fuel economies has a row for each make and model of car released in the United States from 1984-2017. The relevant included features for each make and model of car are the year it was released, the type of fuel it uses, the approcximate miles per gallon in the city, on the highway, and combined city and highway driving.&lt;/p&gt;
+&lt;p&gt;The dataset of green house gas emision per country contains a row for every country and a column for every year 1750-2019. Each entry is the number of tonnes of green house gas emitted from that country in that year.&lt;/p&gt;
+&lt;p&gt;Both dataset were found on kaggle.com at the following links:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Vehicle Fuel Economy Estimates, 1984-2017 :
+
+  https://www.kaggle.com/epa/fuel-economy/  
+  
+CO2 and GHG emission data :   
+
+  https://www.kaggle.com/srikantsahu/co2-and-ghg-emission-data/  
+  &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;tidying&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Tidying&lt;/h1&gt;
+&lt;p&gt;Let us begin by loading the packages and dataframes we will be using. Emissions (called emissions_wide because we’ll later make it long) and cars were both downloaded from kaggle in .csv form.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(tidyverse) # Pivot_long doesn&amp;#39;t work without this...?
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+
+
+emissions_wide &amp;lt;- read.csv(&amp;quot;emissions.csv&amp;quot;)
+cars &amp;lt;- read.csv(&amp;quot;cars.csv&amp;quot;)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;emissions_wide is a dataframe with 231 observations (rows) of 268 variables (columns). The first thing we need to do is make the emissions_wide dataframe long. Instead of having a single column for country name and 267 columns for each year of interest, we want it to have a single column for country name, a single column for the year of the observation, and a single column for the observation itself. We will do this with pivot_longer using &lt;code&gt;names_prefix = &amp;quot;X&amp;quot;&lt;/code&gt; to remove the “X” from the begining of every year column name, and a mutate to convert the year column from a character type to a numeric type. We will then use filter to remove all observations that are not of the united states, since the fuel economy data only includes US data. We will then remove the Country column since it is no longer neccessary due to it only containing one value.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;emissions &amp;lt;- emissions_wide %&amp;gt;%
+  pivot_longer(-Country, names_to = &amp;quot;Year&amp;quot;, names_prefix = &amp;quot;X&amp;quot;, values_to = &amp;quot;Yearly.Emissions&amp;quot;) %&amp;gt;%
+  filter(Country == &amp;quot;United States&amp;quot;) %&amp;gt;%
+  mutate(Year = as.numeric(Year)) %&amp;gt;%
+  select(-Country)
+
+tail(emissions) # prints the end of the dataframe (The begining is very uninteresting)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 x 2
+##    Year Yearly.Emissions
+##   &amp;lt;dbl&amp;gt;            &amp;lt;dbl&amp;gt;
+## 1  2012     372000000000
+## 2  2013     378000000000
+## 3  2014     383000000000
+## 4  2015     389000000000
+## 5  2016     394000000000
+## 6  2017     399000000000&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Next, purely to demonstrate the use of &lt;code&gt;pivot_wider&lt;/code&gt; we will put emissions back into wide form.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;emWide &amp;lt;- emissions %&amp;gt;%
+  pivot_wider(id_cols = Year, names_from = Year, values_from = Yearly.Emissions) %&amp;gt;%
+  select(&amp;quot;2013&amp;quot;, &amp;quot;2014&amp;quot;, &amp;quot;2015&amp;quot;, &amp;quot;2016&amp;quot;, &amp;quot;2017&amp;quot;) # pick only a few columns to make it viewable
+head(emWide)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 1 x 5
+##         `2013`       `2014`       `2015`       `2016`       `2017`
+##          &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;        &amp;lt;dbl&amp;gt;
+## 1 378000000000 383000000000 389000000000 394000000000 399000000000&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now we will clean up the cars dataset to include only the columns we need instead of all 81 columns in it. We will also rename some of the columns and remove all rows with MPG measurements that are 0 (this data set uses 0 instead of NA).&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsTidy &amp;lt;- cars %&amp;gt;%
+  rename(City.MPG = Unrounded.City.MPG..FT1., Highway.MPG = Unrounded.Highway.MPG..FT1.,
+         Combined.MPG = Unrounded.Combined.MPG..FT1.) %&amp;gt;%
+  select(Vehicle.ID, Year, Make, Fuel.Type, City.MPG, Highway.MPG, Combined.MPG) %&amp;gt;%
+  filter(City.MPG != 0, Highway.MPG != 0, Combined.MPG != 0)&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;joining&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Joining&lt;/h1&gt;
+&lt;p&gt;We will now join the datasets on the &lt;code&gt;Year&lt;/code&gt; variable using inner join. The purpose of this join is to add a column to the cars dataset that contains the amount of greenhouse gas released by the US the year the car was created. The &lt;code&gt;inner_join&lt;/code&gt; method is what we want to use here since it will keep all columns from the first dataset (carsTidy) and add the amount of greenhouse gas emitted to every row based on the year.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions &amp;lt;- carsTidy %&amp;gt;%
+  inner_join(emissions, by = c(&amp;quot;Year&amp;quot;, &amp;quot;Year&amp;quot;))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Not all the entries in the emissions dataset are used. This is because the emissions dataset has years ranging from 1750-2019 while the car dataset has years ranging from 1984-2017 (this is from the title of the datasets). However, all of the rows of the carsTidy dataset will be maintained in the resultant dataset. This is not a problem as we only care about the car data and emissions data from the date range over which we have data.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;wrangling&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Wrangling&lt;/h1&gt;
+&lt;p&gt;Let’s first examine the numeric variables we are interested in.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions %&amp;gt;%
+  summarise(avgCity = mean(City.MPG),
+            sdCity = sd(City.MPG),
+            avgHighway = mean(Highway.MPG),
+            sdHighway = sd(Highway.MPG),
+            avgCombined = mean(Combined.MPG),
+            sdCombined = sd(Combined.MPG))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##    avgCity   sdCity avgHighway sdHighway avgCombined sdCombined
+## 1 20.77443 11.20033    27.6541  9.710954    23.29061   10.42525&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Let’s now create a variable that is an average of the fuel efficiency of the vehicle.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions &amp;lt;- carsEmissions %&amp;gt;%
+  mutate(Average.MPG = (City.MPG + Highway.MPG + Combined.MPG) / 3 )
+
+carsEmissions %&amp;gt;%
+  select(City.MPG, Highway.MPG, Combined.MPG, Average.MPG) %&amp;gt;%
+  summarize_all(mean)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##   City.MPG Highway.MPG Combined.MPG Average.MPG
+## 1 20.77443     27.6541     23.29061    23.90638&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Let’s next get a basic idea of the data we are looking at begining with the categorical variable Make.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions %&amp;gt;%
+  summarise(NumCarEntries=n(),
+            NumUniqueMakes=length(unique(Make)))&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##   NumCarEntries NumUniqueMakes
+## 1          8451             60&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;There are 8451 entries in carsEmissions and 60 unique entries. Let’s pick just the most common 5 car makes for analyzing.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;summary(carsEmissions$Make, 6)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##           BMW     Chevrolet          Ford Mercedes-Benz        Toyota 
+##           701           605           592           517           397 
+##       (Other) 
+##          5639&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;commonMake &amp;lt;- carsEmissions %&amp;gt;%
+  filter(Make %in% c(&amp;quot;BMW&amp;quot;, &amp;quot;Chevrolet&amp;quot;, &amp;quot;Ford&amp;quot;, &amp;quot;Mercedes-Benz&amp;quot;, &amp;quot;Toyota&amp;quot;))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We can group by make and Fuel.Type and then summarize with the mean average MPG.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;commonMake %&amp;gt;%
+  group_by(Make) %&amp;gt;%
+  summarise(mean = mean(Average.MPG),
+            count = n(),
+            sd = sd(Average.MPG),
+            min = min(Average.MPG),
+            max = max(Average.MPG)) %&amp;gt;%
+  arrange(desc(mean)) %&amp;gt;%
+  head()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 5 x 6
+##   Make           mean count    sd   min   max
+##   &amp;lt;fct&amp;gt;         &amp;lt;dbl&amp;gt; &amp;lt;int&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt;
+## 1 Toyota         25.0   397  9.90  14.6  76.1
+## 2 BMW            23.6   701  9.88  14.4 124. 
+## 3 Ford           23.5   592 10.3   11.3 107. 
+## 4 Chevrolet      22.8   605 10.0   12.0 119. 
+## 5 Mercedes-Benz  21.4   517  6.89  10.8  83.7&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;commonMake %&amp;gt;%
+  group_by(Make, Fuel.Type) %&amp;gt;%
+  summarise(mean = mean(Average.MPG),
+            count = n(),
+            sd = sd(Average.MPG),
+            min = min(Average.MPG),
+            max = max(Average.MPG)) %&amp;gt;%
+  arrange(desc(mean)) %&amp;gt;%
+  head()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 x 7
+## # Groups:   Make [5]
+##   Make          Fuel.Type                    mean count      sd   min   max
+##   &amp;lt;fct&amp;gt;         &amp;lt;fct&amp;gt;                       &amp;lt;dbl&amp;gt; &amp;lt;int&amp;gt;   &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt; &amp;lt;dbl&amp;gt;
+## 1 BMW           Electricity                 119.      6 9.14    102.  124. 
+## 2 Chevrolet     Electricity                 119.      4 0.0860  119.  119. 
+## 3 Ford          Electricity                 105.      6 1.02    105.  107. 
+## 4 Mercedes-Benz Electricity                  83.7     4 0.00745  83.7  83.7
+## 5 Toyota        Electricity                  76.1     3 0        76.1  76.1
+## 6 Toyota        Regular Gas and Electricity  50.6     5 2.04     49.7  54.2&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We can see that out of the five companies that created the greatest number of car models, Toyota cars have the best gas milege and Mercedes-Benz have the worst. However, when including the type of fuel a car uses as a grouping variable, we see that the top 5 most fuel efficient vehicles are electric cars (makes sense).&lt;/p&gt;
+&lt;p&gt;Let’s see which make and class of car has the biggest average difference in city and highway fuel efficiency.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;commonMake %&amp;gt;%
+  group_by(Make) %&amp;gt;%
+  summarise(diff = mean(abs(City.MPG - Highway.MPG)),
+            count = n(),
+            sdDiff = sd(abs(City.MPG - Highway.MPG))) %&amp;gt;%
+  arrange(desc(diff)) %&amp;gt;%
+  head()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 5 x 4
+##   Make           diff count sdDiff
+##   &amp;lt;fct&amp;gt;         &amp;lt;dbl&amp;gt; &amp;lt;int&amp;gt;  &amp;lt;dbl&amp;gt;
+## 1 BMW            8.48   701   2.33
+## 2 Chevrolet      7.41   605   2.50
+## 3 Ford           7.09   592   2.28
+## 4 Mercedes-Benz  7.04   517   1.91
+## 5 Toyota         5.24   397   2.00&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;commonMake %&amp;gt;%
+  group_by(Make, Fuel.Type) %&amp;gt;%
+  summarise(diff = mean(abs(City.MPG - Highway.MPG)),
+            count = n(),
+            sdDiff = sd(abs(City.MPG - Highway.MPG))) %&amp;gt;%
+  arrange(desc(diff)) %&amp;gt;%
+  head()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## # A tibble: 6 x 5
+## # Groups:   Make [3]
+##   Make      Fuel.Type    diff count sdDiff
+##   &amp;lt;fct&amp;gt;     &amp;lt;fct&amp;gt;       &amp;lt;dbl&amp;gt; &amp;lt;int&amp;gt;  &amp;lt;dbl&amp;gt;
+## 1 BMW       Electricity 22.9      6  6.31 
+## 2 Chevrolet Electricity 18.6      4  0.820
+## 3 Ford      Electricity 13.0      6  4.73 
+## 4 Chevrolet Diesel      11.4      6  4.58 
+## 5 BMW       Diesel       9.61    29  2.16 
+## 6 BMW       Premium      8.41   653  1.64&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;BMW cars, and more specifically BMW electric cars have the biggest difference in fuel efficiency from higway to city driving.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cor(carsEmissions$Average.MPG, carsEmissions$Yearly.Emissions)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.1348772&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The Average.MPG variable and the Yearly.Emissions variable are very weakly linearly positively correlated.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cor(carsEmissions$Year, carsEmissions$Average.MPG)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.1343623&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The Year and Average.MPG variable are also weakly linearly correlated.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;cor(carsEmissions$Year, carsEmissions$Yearly.Emissions)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## [1] 0.999662&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;There is a very strong correlation between Year and Yearly.Emissions.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions %&amp;gt;%
+  select(City.MPG, Highway.MPG, Combined.MPG, Average.MPG, Year, Yearly.Emissions) %&amp;gt;%
+  cor()&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;##                   City.MPG Highway.MPG Combined.MPG Average.MPG      Year
+## City.MPG         1.0000000   0.9593124    0.9942326   0.9923557 0.1203128
+## Highway.MPG      0.9593124   1.0000000    0.9833193   0.9867523 0.1495610
+## Combined.MPG     0.9942326   0.9833193    1.0000000   0.9997035 0.1324977
+## Average.MPG      0.9923557   0.9867523    0.9997035   1.0000000 0.1343623
+## Year             0.1203128   0.1495610    0.1324977   0.1343623 1.0000000
+## Yearly.Emissions 0.1207456   0.1501808    0.1329924   0.1348772 0.9996620
+##                  Yearly.Emissions
+## City.MPG                0.1207456
+## Highway.MPG             0.1501808
+## Combined.MPG            0.1329924
+## Average.MPG             0.1348772
+## Year                    0.9996620
+## Yearly.Emissions        1.0000000&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We can see from all of the summary statistics above that there are a lot of different Makes of car and that the fuel efficiency varaies between different Makes of car a little, and between different fuel types a lot. The only interesting correlation between two numerics is the strong positive correlation between Year and Yearly.Emmissions; Emissions increase over time. I was expecting a higher correlation between year and the three different MPG observations.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;visualizing&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Visualizing&lt;/h1&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions &amp;lt;- carsEmissions %&amp;gt;% 
+  mutate(Common.Fuel.Type = 
+          ifelse(Fuel.Type == &amp;quot;Regular&amp;quot;, &amp;quot;Regular&amp;quot;, 
+          ifelse(Fuel.Type == &amp;quot;Premium&amp;quot;, &amp;quot;Premium&amp;quot;,
+          ifelse(Fuel.Type == &amp;quot;Gasoline or E85&amp;quot;, &amp;quot;Gasoline or E85&amp;quot;,
+          ifelse(Fuel.Type == &amp;quot;Electricity&amp;quot;, &amp;quot;Electricity&amp;quot;,
+                 &amp;quot;Other&amp;quot; )))))
+
+ggplot(carsEmissions, aes(x = Year, y = Average.MPG, color = Common.Fuel.Type)) +
+  ylab(&amp;quot;Average MPG&amp;quot;) +
+  xlab(&amp;quot;Year&amp;quot;) +
+  geom_point() +
+  geom_jitter(width = 0.2) +
+  labs(title = &amp;quot;Average Miles Per Gallon by Fuel Type&amp;quot;, color = &amp;quot;Fuel Type&amp;quot;) + 
+  geom_smooth(method = &amp;quot;lm&amp;quot;, fill = NA) +
+  theme_stata() +
+  theme(plot.title = element_text(color = &amp;quot;darkblue&amp;quot;))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/SDS328-project1/index_files/figure-html/unnamed-chunk-19-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;This graph shows the change in the Average MPG of cars grouped by the type of fuel that they consume. There are many fuel types in the dataset, so only the most common four are labeled with their own names. The others are grouped into an other category. We can see from the best fit lines for each group that the fuel efficiency increased on average over the years for every fuel type. We can also see that electric cars are the only fuel type for which the average miles per gallon is distinguishable from the other groups and that it is much higher than the other groups.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;carsEmissions &amp;lt;- carsEmissions %&amp;gt;% 
+  mutate(Common.Make = 
+          ifelse(Make == &amp;quot;BMW&amp;quot;, &amp;quot;BMW&amp;quot;, 
+          ifelse(Make == &amp;quot;Chevrolet&amp;quot;, &amp;quot;Chevrolet&amp;quot;,
+          ifelse(Make == &amp;quot;Ford&amp;quot;, &amp;quot;Ford&amp;quot;,
+          ifelse(Make == &amp;quot;Mercedes-Benz&amp;quot;, &amp;quot;Mercedes-Benz&amp;quot;,
+                 &amp;quot;Other&amp;quot; )))))
+
+carsEmissions_long &amp;lt;- carsEmissions %&amp;gt;%
+  select(Common.Make, City.MPG, Highway.MPG, Combined.MPG) %&amp;gt;%
+  pivot_longer(-Common.Make, names_to = &amp;quot;Measurement&amp;quot;, values_to = &amp;quot;Value&amp;quot;, names_pattern = &amp;quot;(.*).MPG&amp;quot;)
+
+ggplot(carsEmissions_long, aes(x=Common.Make)) +
+  xlab(&amp;quot;Make of Vehicle&amp;quot;) +
+  ylab(&amp;quot;MPG&amp;quot;) +
+  labs(title = &amp;quot;Fuel Efficiency of Vehicles by Make&amp;quot;, color = &amp;quot;Measurement Type&amp;quot;) + 
+  geom_point(aes(y=Value, color = Measurement),stat=&amp;quot;summary&amp;quot;, size = 4) +
+  scale_y_continuous(breaks = seq(from=14, to=30, by=2)) +
+  theme_clean() +
+  theme(plot.title = element_text(colour = &amp;quot;gray8&amp;quot;))&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/SDS328-project1/index_files/figure-html/unnamed-chunk-20-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;This graph shows three different measures of fuel efficiency for each Make of vehicle. It was created by using &lt;code&gt;pivot_long&lt;/code&gt; on the &lt;code&gt;carsEmissions&lt;/code&gt; dataset to make a categorical variable for the type of the measurement of fuel efficiency. Only the four most common makes in the dataset were included with the rest being grouped into an “Other” group. We can see that Mercedez-Benz has the worst fuel efficiency for all three measurements, and BMW has the best highway performance while Ford has the best city performance (out of only the four most common Makes).&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;dimensionality-reduction&#34; class=&#34;section level1&#34;&gt;
+&lt;h1&gt;Dimensionality Reduction&lt;/h1&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;comps &amp;lt;- carsEmissions %&amp;gt;%
+  select(Year, City.MPG, Highway.MPG, Combined.MPG, Average.MPG, Yearly.Emissions) %&amp;gt;%
+  prcomp()
+
+summary(comps)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Importance of components:
+##                              PC1   PC2   PC3    PC4     PC5       PC6
+## Standard deviation     1.087e+10 20.59 2.087 0.1999 0.05232 1.061e-10
+## Proportion of Variance 1.000e+00  0.00 0.000 0.0000 0.00000 0.000e+00
+## Cumulative Proportion  1.000e+00  1.00 1.000 1.0000 1.00000 1.000e+00&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;compsdf &amp;lt;- as.data.frame(comps$x)
+compsdf$Common.Fuel.Type = carsEmissions$Common.Fuel.Type
+ggplot(compsdf, aes(x = PC2, y = PC3, color=Common.Fuel.Type)) +
+  labs(title = &amp;quot;PCA Plot Clustered by Fuel Type&amp;quot;, color = &amp;quot;Fuel Type&amp;quot;) +
+  geom_point()&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/SDS328-project1/index_files/figure-html/unnamed-chunk-22-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;rot &amp;lt;- as.data.frame(comps$rotation)
+rot$feature &amp;lt;- row.names(rot)
+
+ggplot(rot, aes(x = PC2, y = PC3, label = feature, color = feature)) +
+  geom_point(size = 3) +
+  labs(title = &amp;quot;Loadings Plot of Numeric Variables&amp;quot;, color = &amp;quot;Variable&amp;quot;) +
+  xlim(-1,1) +
+  ylim(-1,1)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;/project/SDS328-project1/index_files/figure-html/unnamed-chunk-23-1.png&#34; width=&#34;768&#34; style=&#34;display: block; margin: auto;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;The most correlated variables are Combined.MPG and Average.MPG (this makes sense since the combined mpg can be expected to be about the average of Highway and City MPGs). Yearly Emissions is not correlated with the MPG. City.MPG and Highway.MPG show almost no correlation.&lt;/p&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

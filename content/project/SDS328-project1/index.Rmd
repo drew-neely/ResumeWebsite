@@ -1,0 +1,316 @@
+---
+title: "SDS 348 Project 1"
+author: "Drew Neely (dln696)"
+date: "10/20/2019"
+indent: True
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r global_options, include=FALSE}
+# DO NOT DELETE THIS CHUNK!
+library(knitr)
+opts_chunk$set(fig.align="center", fig.height=5, message=FALSE, fig.width=8,tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+---
+
+# Introduction
+  
+  The datasets I chose to analyze for this project are a dataset of vehicle fuel economies in the United States and a dataset of yearly green house gas emission per country.   
+  
+  The dataset of vehicle fuel economies has a row for each make and model of car released in the United States from 1984-2017. The relevant included features for each make and model of car are the year it was released, the type of fuel it uses, the approcximate miles per gallon in the city, on the highway, and combined city and highway driving.  
+  
+  The dataset of green house gas emision per country contains a row for every country and a column for every year 1750-2019. Each entry is the number of tonnes of green house gas emitted from that country in that year.  
+  
+  Both dataset were found on kaggle.com at the following links:  
+  
+    Vehicle Fuel Economy Estimates, 1984-2017 :
+    
+      https://www.kaggle.com/epa/fuel-economy/  
+      
+    CO2 and GHG emission data :   
+    
+      https://www.kaggle.com/srikantsahu/co2-and-ghg-emission-data/  
+      
+# Tidying  
+  
+  Let us begin by loading the packages and dataframes we will be using. Emissions (called emissions_wide because we'll later make it long) and cars were both downloaded from kaggle in .csv form.
+
+```{R}
+library(tidyverse) # Pivot_long doesn't work without this...?
+library(ggplot2)
+library(dplyr)
+library(ggthemes)
+
+
+emissions_wide <- read.csv("emissions.csv")
+cars <- read.csv("cars.csv")
+
+```
+
+  emissions_wide is a dataframe with 231 observations (rows) of 268 variables (columns). The first thing we need to do is make the emissions_wide dataframe long. Instead of having a single column for country name and 267 columns for each year of interest, we want it to have a single column for country name, a single column for the year of the observation, and a single column for the observation itself. We will do this with pivot_longer using ```names_prefix = "X" ``` to remove the "X" from the begining of every year column name, and a mutate to convert the year column from a character type to a numeric type. We will then use filter to remove all observations that are not of the united states, since the fuel economy data only includes US data. We will then remove the Country column since it is no longer neccessary due to it only containing one value.
+
+
+```{R}
+emissions <- emissions_wide %>%
+  pivot_longer(-Country, names_to = "Year", names_prefix = "X", values_to = "Yearly.Emissions") %>%
+  filter(Country == "United States") %>%
+  mutate(Year = as.numeric(Year)) %>%
+  select(-Country)
+
+tail(emissions) # prints the end of the dataframe (The begining is very uninteresting)
+```  
+  
+Next, purely to demonstrate the use of ```pivot_wider``` we will put emissions back into wide form.
+
+```{R}
+emWide <- emissions %>%
+  pivot_wider(id_cols = Year, names_from = Year, values_from = Yearly.Emissions) %>%
+  select("2013", "2014", "2015", "2016", "2017") # pick only a few columns to make it viewable
+head(emWide)
+```
+
+  Now we will clean up the cars dataset to include only the columns we need instead of all 81 columns in it. We will also rename some of the columns and remove all rows with MPG measurements that are 0 (this data set uses 0 instead of NA).
+
+```{R}
+carsTidy <- cars %>%
+  rename(City.MPG = Unrounded.City.MPG..FT1., Highway.MPG = Unrounded.Highway.MPG..FT1.,
+         Combined.MPG = Unrounded.Combined.MPG..FT1.) %>%
+  select(Vehicle.ID, Year, Make, Fuel.Type, City.MPG, Highway.MPG, Combined.MPG) %>%
+  filter(City.MPG != 0, Highway.MPG != 0, Combined.MPG != 0)
+```
+
+# Joining  
+
+  We will now join the datasets on the ```Year``` variable using inner join. The purpose of this join is to add a column to the cars dataset that contains the amount of greenhouse gas released by the US the year the car was created. The ```inner_join``` method is what we want to use here since it will keep all columns from the first dataset (carsTidy) and add the amount of greenhouse gas emitted to every row based on the year.  
+  
+```{R}
+carsEmissions <- carsTidy %>%
+  inner_join(emissions, by = c("Year", "Year"))
+
+```
+
+  Not all the entries in the emissions dataset are used. This is because the emissions dataset has years ranging from 1750-2019 while the car dataset has years ranging from 1984-2017 (this is from the title of the datasets). However, all of the rows of the carsTidy dataset will be maintained in the resultant dataset. This is not a problem as we only care about the car data and emissions data from the date range over which we have data.  
+
+# Wrangling  
+
+  Let's first examine the numeric variables we are interested in.
+
+```{R}
+carsEmissions %>%
+  summarise(avgCity = mean(City.MPG),
+            sdCity = sd(City.MPG),
+            avgHighway = mean(Highway.MPG),
+            sdHighway = sd(Highway.MPG),
+            avgCombined = mean(Combined.MPG),
+            sdCombined = sd(Combined.MPG))
+
+```
+  
+  Let's now create a variable that is an average of the fuel efficiency of the vehicle.
+
+``` {R}
+carsEmissions <- carsEmissions %>%
+  mutate(Average.MPG = (City.MPG + Highway.MPG + Combined.MPG) / 3 )
+
+carsEmissions %>%
+  select(City.MPG, Highway.MPG, Combined.MPG, Average.MPG) %>%
+  summarize_all(mean)
+
+```
+
+  Let's next get a basic idea of the data we are looking at begining with the categorical variable Make.  
+
+```{R}
+carsEmissions %>%
+  summarise(NumCarEntries=n(),
+            NumUniqueMakes=length(unique(Make)))
+
+```
+
+  There are 8451 entries in carsEmissions and 60 unique entries. Let's pick just the most common 5 car makes for analyzing.
+  
+``` {R}
+summary(carsEmissions$Make, 6)
+
+```
+
+```{R}
+commonMake <- carsEmissions %>%
+  filter(Make %in% c("BMW", "Chevrolet", "Ford", "Mercedes-Benz", "Toyota"))
+
+```
+
+We can group by make and Fuel.Type and then summarize with the mean average MPG.
+
+```{R}
+commonMake %>%
+  group_by(Make) %>%
+  summarise(mean = mean(Average.MPG),
+            count = n(),
+            sd = sd(Average.MPG),
+            min = min(Average.MPG),
+            max = max(Average.MPG)) %>%
+  arrange(desc(mean)) %>%
+  head()
+
+```
+
+```{R}
+commonMake %>%
+  group_by(Make, Fuel.Type) %>%
+  summarise(mean = mean(Average.MPG),
+            count = n(),
+            sd = sd(Average.MPG),
+            min = min(Average.MPG),
+            max = max(Average.MPG)) %>%
+  arrange(desc(mean)) %>%
+  head()
+  
+```
+
+  We can see that out of the five companies that created the greatest number of car models, Toyota cars have the best gas milege and Mercedes-Benz have the worst. However, when including the type of fuel a car uses as a grouping variable, we see that the top 5 most fuel efficient vehicles are electric cars (makes sense).  
+  
+  Let's see which make and class of car has the biggest average difference in city and highway fuel efficiency.
+
+```{R}
+commonMake %>%
+  group_by(Make) %>%
+  summarise(diff = mean(abs(City.MPG - Highway.MPG)),
+            count = n(),
+            sdDiff = sd(abs(City.MPG - Highway.MPG))) %>%
+  arrange(desc(diff)) %>%
+  head()
+  
+```
+
+```{R}
+commonMake %>%
+  group_by(Make, Fuel.Type) %>%
+  summarise(diff = mean(abs(City.MPG - Highway.MPG)),
+            count = n(),
+            sdDiff = sd(abs(City.MPG - Highway.MPG))) %>%
+  arrange(desc(diff)) %>%
+  head()
+  
+```
+
+BMW cars, and more specifically BMW electric cars have the biggest difference in fuel efficiency from higway to city driving.  
+
+```{R}
+cor(carsEmissions$Average.MPG, carsEmissions$Yearly.Emissions)
+
+```
+
+The Average.MPG variable and the Yearly.Emissions variable are very weakly linearly positively correlated.  
+
+```{R}
+cor(carsEmissions$Year, carsEmissions$Average.MPG)
+
+```
+
+  The Year and Average.MPG variable are also weakly linearly correlated.
+
+```{R}
+cor(carsEmissions$Year, carsEmissions$Yearly.Emissions)
+
+```
+
+  There is a very strong correlation between Year and Yearly.Emissions.
+  
+```{R}
+carsEmissions %>%
+  select(City.MPG, Highway.MPG, Combined.MPG, Average.MPG, Year, Yearly.Emissions) %>%
+  cor()
+
+```
+
+  We can see from all of the summary statistics above that there are a lot of different Makes of car and that the fuel efficiency varaies between different Makes of car a little, and between different fuel types a lot. The only interesting correlation between two numerics is the strong positive correlation between Year and Yearly.Emmissions; Emissions increase over time. I was expecting a higher correlation between year and the three different MPG observations.  
+
+# Visualizing  
+
+```{R}
+carsEmissions <- carsEmissions %>% 
+  mutate(Common.Fuel.Type = 
+          ifelse(Fuel.Type == "Regular", "Regular", 
+          ifelse(Fuel.Type == "Premium", "Premium",
+          ifelse(Fuel.Type == "Gasoline or E85", "Gasoline or E85",
+          ifelse(Fuel.Type == "Electricity", "Electricity",
+                 "Other" )))))
+
+ggplot(carsEmissions, aes(x = Year, y = Average.MPG, color = Common.Fuel.Type)) +
+  ylab("Average MPG") +
+  xlab("Year") +
+  geom_point() +
+  geom_jitter(width = 0.2) +
+  labs(title = "Average Miles Per Gallon by Fuel Type", color = "Fuel Type") + 
+  geom_smooth(method = "lm", fill = NA) +
+  theme_stata() +
+  theme(plot.title = element_text(color = "darkblue"))
+
+
+
+```  
+
+This graph shows the change in the Average MPG of cars grouped by the type of fuel that they consume. There are many fuel types in the dataset, so only the most common four are labeled with their own names. The others are grouped into an other category. We can see from the best fit lines for each group that the fuel efficiency increased on average over the years for every fuel type. We can also see that electric cars are the only fuel type for which the average miles per gallon is distinguishable from the other groups and that it is much higher than the other groups.  
+
+```{R}
+carsEmissions <- carsEmissions %>% 
+  mutate(Common.Make = 
+          ifelse(Make == "BMW", "BMW", 
+          ifelse(Make == "Chevrolet", "Chevrolet",
+          ifelse(Make == "Ford", "Ford",
+          ifelse(Make == "Mercedes-Benz", "Mercedes-Benz",
+                 "Other" )))))
+
+carsEmissions_long <- carsEmissions %>%
+  select(Common.Make, City.MPG, Highway.MPG, Combined.MPG) %>%
+  pivot_longer(-Common.Make, names_to = "Measurement", values_to = "Value", names_pattern = "(.*).MPG")
+
+ggplot(carsEmissions_long, aes(x=Common.Make)) +
+  xlab("Make of Vehicle") +
+  ylab("MPG") +
+  labs(title = "Fuel Efficiency of Vehicles by Make", color = "Measurement Type") + 
+  geom_point(aes(y=Value, color = Measurement),stat="summary", size = 4) +
+  scale_y_continuous(breaks = seq(from=14, to=30, by=2)) +
+  theme_clean() +
+  theme(plot.title = element_text(colour = "gray8"))
+
+```
+
+This graph shows three different measures of fuel efficiency for each Make of vehicle. It was created by using ```pivot_long``` on the ```carsEmissions``` dataset to make a categorical variable for the type of the measurement of fuel efficiency. Only the four most common makes in the dataset were included with the rest being grouped into an "Other" group. We can see that Mercedez-Benz has the worst fuel efficiency for all three measurements, and BMW has the best highway performance while Ford has the best city performance (out of only the four most common Makes).  
+
+# Dimensionality Reduction  
+
+```{R}
+comps <- carsEmissions %>%
+  select(Year, City.MPG, Highway.MPG, Combined.MPG, Average.MPG, Yearly.Emissions) %>%
+  prcomp()
+
+summary(comps)
+
+```
+
+```{R}
+compsdf <- as.data.frame(comps$x)
+compsdf$Common.Fuel.Type = carsEmissions$Common.Fuel.Type
+ggplot(compsdf, aes(x = PC2, y = PC3, color=Common.Fuel.Type)) +
+  labs(title = "PCA Plot Clustered by Fuel Type", color = "Fuel Type") +
+  geom_point()
+
+```
+
+```{R}
+rot <- as.data.frame(comps$rotation)
+rot$feature <- row.names(rot)
+
+ggplot(rot, aes(x = PC2, y = PC3, label = feature, color = feature)) +
+  geom_point(size = 3) +
+  labs(title = "Loadings Plot of Numeric Variables", color = "Variable") +
+  xlim(-1,1) +
+  ylim(-1,1)
+```
+
+  The most correlated variables are Combined.MPG and Average.MPG (this makes sense since the combined mpg can be expected to be about the average of Highway and City MPGs). Yearly Emissions is not correlated with the MPG. City.MPG and Highway.MPG show almost no correlation.
